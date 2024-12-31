@@ -1,1 +1,135 @@
-# ¼ì²éÊÇ·ñÒÔ¹ÜÀíÔ±Éí·İÔËĞĞif (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {    Write-Host "ÇëÒÔ¹ÜÀíÔ±Éí·İÔËĞĞ´Ë½Å±¾¡£" -ForegroundColor Red    exit 1}# º¯Êı£ºÏÂÔØÎÄ¼şfunction Download-File {    param (        [string]$Url,        [string]$OutputPath    )    Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing}# ¼ì²é Node.js ÊÇ·ñ°²×°if (-not (Get-Command node -ErrorAction SilentlyContinue)) {    Write-Host "Î´¼ì²âµ½ Node.js£¬ÕıÔÚÏÂÔØ²¢°²×° Node.js..." -ForegroundColor Yellow    # ¶¨Òå Node.js °²×°°ü    $nodeInstaller = "node-v16.20.1-x64.msi"    $nodeUrl = "https://nodejs.org/dist/v16.20.1/$nodeInstaller"    $installerPath = "$env:TEMP\$nodeInstaller"    # ÏÂÔØ Node.js    Download-File -Url $nodeUrl -OutputPath $installerPath    # °²×° Node.js    Start-Process msiexec.exe -ArgumentList "/i $installerPath /quiet /norestart" -Wait    if ($LASTEXITCODE -ne 0) {        Write-Host "Ö´ĞĞÍê³ÉÇëÖØÆôPowerShell¡£" -ForegroundColor Red        exit 1    }    Write-Host "Node.js °²×°³É¹¦¡£" -ForegroundColor Green}# ¼ì²éÊÇ·ñ°²×°ÁË JavaScript Obfuscatorif (-not (npm list -g javascript-obfuscator | Select-String "javascript-obfuscator")) {    Write-Host "ÕıÔÚ°²×° JavaScript Obfuscator..." -ForegroundColor Yellow    npm install -g javascript-obfuscator    if ($LASTEXITCODE -ne 0) {        Write-Host "JavaScript Obfuscator °²×°Ê§°Ü¡£" -ForegroundColor Red        exit 1    }    Write-Host "JavaScript Obfuscator °²×°³É¹¦¡£" -ForegroundColor Green}# ÏÂÔØÎÄ¼şµ½ÁÙÊ±ÎÄ¼ş¼Ğ$tempDir = [System.IO.Path]::GetTempPath()$inputFile = Join-Path $tempDir "index.js"$outputFile = "$PSScriptRoot\_worker.js"$backupFile = Join-Path $tempDir "index.bak"Write-Host "ÕıÔÚ´ÓÔ¶³ÌÏÂÔØÎÄ¼ş..."$sourceUrl = "https://joeyblog.net/jb/index.js"Download-File -Url $sourceUrl -OutputPath $inputFileif (-not (Test-Path $inputFile)) {    Write-Host "ÎÄ¼şÏÂÔØÊ§°Ü£¬Çë¼ì²é URL »òÍøÂçÁ¬½Ó¡£" -ForegroundColor Red    exit 1}# Ç¿ÖÆ¶ÁÈ¡ÎÄ¼şÎª UTF-8$fileContent = Get-Content $inputFile -Raw -Encoding UTF8# ½»»¥£ºÊäÈë UUID$uuid = Read-Host "ÇëÊäÈëÒ»¸ö UUID£¨²»Ìî×Ô¶¯Éú³É£©"# Èç¹ûÓÃ»§Î´ÊäÈë UUID£¬Ôò×Ô¶¯Éú³ÉÒ»¸öif (-not $uuid) {    $uuid = [guid]::NewGuid().ToString()    Write-Host "Î´ÊäÈë UUID£¬×Ô¶¯Éú³É£º$uuid" -ForegroundColor Yellow}# ¼ì²éÊäÈëÊÇ·ñÊÇÓĞĞ§µÄ UUIDif ($uuid -notmatch "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$") {    Write-Host "ÊäÈëµÄ UUID ¸ñÊ½ÎŞĞ§£¬ÇëÖØĞÂÔËĞĞ½Å±¾²¢ÊäÈëÕıÈ·µÄ UUID¡£" -ForegroundColor Red    exit 1}# ½»»¥£ºÊäÈëÎ±×°ÓòÃû$fakedomain = Read-Host "ÇëÊäÈëÎ±×°ÓòÃû£¨²»ÌîÊ¹ÓÃ example£©"# Èç¹ûÎ´ÊäÈëÎ±×°ÓòÃû£¬ÉèÖÃÄ¬ÈÏÖµif (-not $fakedomain) {    $fakedomain = "example.com"    Write-Host "Î´ÊäÈëÎ±×°ÓòÃû£¬Ê¹ÓÃÄ¬ÈÏÖµ: $fakedomain" -ForegroundColor Yellow}# ¼ì²éÓÃ»§ÊÇ·ñÊäÈëÎ±×°ÓòÃûif (-not $fakedomain) {    Write-Host "Î´ÊäÈëÎ±×°ÓòÃû£¬²Ù×÷ÖĞÖ¹¡£" -ForegroundColor Red    exit 1}# Ìæ»»ÎÄ¼şÖĞµÄÖ¸¶¨×Ö·û´®²¢±£´æÎª UTF-8try {        # Ìæ»»ÄÚÈİ    $fileContent = $fileContent -replace [regex]::Escape("bb9784ed-18c8-4ade-89c0-9bc1495bb6e0"), $uuid    $fileContent = $fileContent -replace [regex]::Escape("example.com"), $fakedomain    # ±£´æÌæ»»ºóµÄÎÄ¼ş    Set-Content -Path $inputFile -Value $fileContent -Encoding UTF8} catch {    Write-Host "Ìæ»»¹ı³ÌÖĞ³öÏÖ´íÎó£º" -ForegroundColor Red    Write-Host $_.Exception.Message    exit 1}# Ö´ĞĞ´úÂëÉú³ÉWrite-Host "ÕıÔÚÉú³É´úÂë..."javascript-obfuscator $inputFile --output $outputFile `    --compact true `    --control-flow-flattening true `    --control-flow-flattening-threshold 1 `    --dead-code-injection true `    --dead-code-injection-threshold 1 `    --identifier-names-generator hexadecimal `    --rename-globals true `    --string-array true `    --string-array-encoding 'rc4' `    --string-array-threshold 1 `    --transform-object-keys true `    --unicode-escape-sequence trueif ($LASTEXITCODE -ne 0) {    Write-Host "´úÂëÉú³ÉÊ§°Ü¡£" -ForegroundColor Red    exit 1}# ÌáÊ¾Éú³ÉÍê³ÉWrite-Host "´úÂëÉú³ÉÍê³É£¬Êä³öÎÄ¼ş£º$outputFile" -ForegroundColor GreenRemove-Item -Path $MyInvocation.MyCommand.Path
+# æ£€æŸ¥æ˜¯å¦ä»¥ç®¡ç†å‘˜èº«ä»½è¿è¡Œ
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "è¯·ä»¥ç®¡ç†å‘˜èº«ä»½è¿è¡Œæ­¤è„šæœ¬ã€‚" -ForegroundColor Red
+    exit 1
+}
+
+# å‡½æ•°ï¼šä¸‹è½½æ–‡ä»¶
+function Download-File {
+    param (
+        [string]$Url,
+        [string]$OutputPath
+    )
+    Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing
+}
+
+# æ£€æŸ¥ Node.js æ˜¯å¦å®‰è£…
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Host "æœªæ£€æµ‹åˆ° Node.jsï¼Œæ­£åœ¨ä¸‹è½½å¹¶å®‰è£… Node.js..." -ForegroundColor Yellow
+
+    # å®šä¹‰ Node.js å®‰è£…åŒ…
+    $nodeInstaller = "node-v16.20.1-x64.msi"
+    $nodeUrl = "https://nodejs.org/dist/v16.20.1/$nodeInstaller"
+    $installerPath = "$env:TEMP\$nodeInstaller"
+
+    # ä¸‹è½½ Node.js
+    Download-File -Url $nodeUrl -OutputPath $installerPath
+
+    # å®‰è£… Node.js
+    Start-Process msiexec.exe -ArgumentList "/i $installerPath /quiet /norestart" -Wait
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "æ‰§è¡Œå®Œæˆè¯·é‡å¯PowerShellã€‚" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "Node.js å®‰è£…æˆåŠŸã€‚" -ForegroundColor Green
+}
+
+# æ£€æŸ¥æ˜¯å¦å®‰è£…äº† JavaScript Obfuscator
+if (-not (npm list -g javascript-obfuscator | Select-String "javascript-obfuscator")) {
+    Write-Host "æ­£åœ¨å®‰è£… JavaScript Obfuscator..." -ForegroundColor Yellow
+    npm install -g javascript-obfuscator
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "JavaScript Obfuscator å®‰è£…å¤±è´¥ã€‚" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "JavaScript Obfuscator å®‰è£…æˆåŠŸã€‚" -ForegroundColor Green
+}
+
+# ä¸‹è½½æ–‡ä»¶åˆ°ä¸´æ—¶æ–‡ä»¶å¤¹
+$tempDir = [System.IO.Path]::GetTempPath()
+$inputFile = Join-Path $tempDir "index.js"
+$outputFile = "$PSScriptRoot\_worker.js"
+$backupFile = Join-Path $tempDir "index.bak"
+
+Write-Host "æ­£åœ¨ä»è¿œç¨‹ä¸‹è½½æ–‡ä»¶..."
+$sourceUrl = "https://joeyblog.net/jb/index.js"
+Download-File -Url $sourceUrl -OutputPath $inputFile
+if (-not (Test-Path $inputFile)) {
+    Write-Host "æ–‡ä»¶ä¸‹è½½å¤±è´¥ï¼Œè¯·æ£€æŸ¥ URL æˆ–ç½‘ç»œè¿æ¥ã€‚" -ForegroundColor Red
+    exit 1
+}
+
+# å¼ºåˆ¶è¯»å–æ–‡ä»¶ä¸º UTF-8
+$fileContent = Get-Content $inputFile -Raw -Encoding UTF8
+
+# äº¤äº’ï¼šè¾“å…¥ UUID
+$uuid = Read-Host "è¯·è¾“å…¥ä¸€ä¸ª UUIDï¼ˆä¸å¡«è‡ªåŠ¨ç”Ÿæˆï¼‰"
+
+# å¦‚æœç”¨æˆ·æœªè¾“å…¥ UUIDï¼Œåˆ™è‡ªåŠ¨ç”Ÿæˆä¸€ä¸ª
+if (-not $uuid) {
+    $uuid = [guid]::NewGuid().ToString()
+    Write-Host "æœªè¾“å…¥ UUIDï¼Œè‡ªåŠ¨ç”Ÿæˆï¼š$uuid" -ForegroundColor Yellow
+}
+
+# æ£€æŸ¥è¾“å…¥æ˜¯å¦æ˜¯æœ‰æ•ˆçš„ UUID
+if ($uuid -notmatch "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$") {
+    Write-Host "è¾“å…¥çš„ UUID æ ¼å¼æ— æ•ˆï¼Œè¯·é‡æ–°è¿è¡Œè„šæœ¬å¹¶è¾“å…¥æ­£ç¡®çš„ UUIDã€‚" -ForegroundColor Red
+    exit 1
+}
+
+# äº¤äº’ï¼šè¾“å…¥ä¼ªè£…åŸŸå
+$fakedomain = Read-Host "è¯·è¾“å…¥ä¼ªè£…åŸŸåï¼ˆä¸å¡«ä½¿ç”¨ exampleï¼‰"
+
+# å¦‚æœæœªè¾“å…¥ä¼ªè£…åŸŸåï¼Œè®¾ç½®é»˜è®¤å€¼
+if (-not $fakedomain) {
+    $fakedomain = "example.com"
+    Write-Host "æœªè¾“å…¥ä¼ªè£…åŸŸåï¼Œä½¿ç”¨é»˜è®¤å€¼: $fakedomain" -ForegroundColor Yellow
+}
+
+# æ£€æŸ¥ç”¨æˆ·æ˜¯å¦è¾“å…¥ä¼ªè£…åŸŸå
+if (-not $fakedomain) {
+    Write-Host "æœªè¾“å…¥ä¼ªè£…åŸŸåï¼Œæ“ä½œä¸­æ­¢ã€‚" -ForegroundColor Red
+    exit 1
+}
+
+# æ›¿æ¢æ–‡ä»¶ä¸­çš„æŒ‡å®šå­—ç¬¦ä¸²å¹¶ä¿å­˜ä¸º UTF-8
+try {
+    
+    # æ›¿æ¢å†…å®¹
+    $fileContent = $fileContent -replace [regex]::Escape("bb9784ed-18c8-4ade-89c0-9bc1495bb6e0"), $uuid
+    $fileContent = $fileContent -replace [regex]::Escape("example.com"), $fakedomain
+
+    # ä¿å­˜æ›¿æ¢åçš„æ–‡ä»¶
+    Set-Content -Path $inputFile -Value $fileContent -Encoding UTF8
+} catch {
+    Write-Host "æ›¿æ¢è¿‡ç¨‹ä¸­å‡ºç°é”™è¯¯ï¼š" -ForegroundColor Red
+    Write-Host $_.Exception.Message
+    exit 1
+}
+
+# æ‰§è¡Œä»£ç ç”Ÿæˆ
+Write-Host "æ­£åœ¨ç”Ÿæˆä»£ç ..."
+javascript-obfuscator $inputFile --output $outputFile `
+    --compact true `
+    --control-flow-flattening true `
+    --control-flow-flattening-threshold 1 `
+    --dead-code-injection true `
+    --dead-code-injection-threshold 1 `
+    --identifier-names-generator hexadecimal `
+    --rename-globals true `
+    --string-array true `
+    --string-array-encoding 'rc4' `
+    --string-array-threshold 1 `
+    --transform-object-keys true `
+    --unicode-escape-sequence true
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ä»£ç ç”Ÿæˆå¤±è´¥ã€‚" -ForegroundColor Red
+    exit 1
+}
+
+# æç¤ºç”Ÿæˆå®Œæˆ
+Write-Host "ä»£ç ç”Ÿæˆå®Œæˆï¼Œè¾“å‡ºæ–‡ä»¶ï¼š$outputFile" -ForegroundColor Green
+Remove-Item -Path $MyInvocation.MyCommand.Path
+
