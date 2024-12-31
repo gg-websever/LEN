@@ -4,6 +4,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit 1
 }
 
+
 # 函数：下载文件
 function Download-File {
     param (
